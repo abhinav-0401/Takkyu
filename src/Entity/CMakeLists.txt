@@ -1,1 +1,1 @@
-target_sources(PongClone PRIVATE)
+target_sources(Takkyu PRIVATE Ball.cpp Paddle.cpp)
