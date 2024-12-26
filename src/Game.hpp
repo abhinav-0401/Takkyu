@@ -29,6 +29,8 @@ private:
     void DrawEntities();
     void HandleInput();
     void UpdatePosition();
+    void DetectWindowCollision(Entity& entity);
+    void PushBall();
 
 private:
     Paddle m_pLeft;

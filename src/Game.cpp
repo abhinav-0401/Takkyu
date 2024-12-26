@@ -1,8 +1,11 @@
+#include <cstdint>
 #include <iostream>
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 
 #include "Game.hpp"
+
+using std::uint64_t;
 
 Game::Game()
     : m_pLeft(Game::WindowWidth / 20, 0.30 * Game::WindowHeight),
@@ -11,7 +14,7 @@ Game::Game()
     m_paddleState(PaddleState::None)
 {
     m_pLeft.GetShape().setPosition(sf::Vector2f(50, Game::WindowHeight / 2 - 50));
-    m_pRight.GetShape().setPosition(Game::WindowWidth - 135, Game::WindowHeight / 2 - 50);
+    m_pRight.GetShape().setPosition(Game::WindowWidth - 115, Game::WindowHeight / 2 - 50);
     m_ball.GetShape().setPosition(Game::WindowWidth / 2, Game::WindowHeight / 2);
 }
 
@@ -28,6 +31,12 @@ void Game::Run()
     while (window.isOpen())
     {
         framesPassed++;
+        
+        if (framesPassed == 1)
+        {
+            PushBall();
+        }
+
         sf::Event event;
         
         while (window.pollEvent(event))
@@ -39,6 +48,7 @@ void Game::Run()
                     break; // never reaches this
                 case sf::Event::MouseButtonPressed:
                     std::cout << "Frames passed till now: " << framesPassed << "\n";
+                    PushBall();
                     break;
             }
         }
@@ -85,31 +95,62 @@ void Game::HandleInput()
     }
 }
 
-static void ChangePosByInt(sf::Shape& shape, float x, float y, sf::Time& deltaTime)
-{
-    sf::Vector2f oldPos = shape.getPosition();
-    shape.setPosition(oldPos.x + x * static_cast<float>(deltaTime.asMilliseconds()), oldPos.y + y * static_cast<float>(deltaTime.asMilliseconds()));
-}
-
 void Game::UpdatePosition()
 {
     switch (m_paddleState)
     {
         case PaddleState::LeftPaddleUp:
-            ChangePosByInt(m_pLeft.GetShape(), 0, -0.8f, m_deltaTime);
+            m_pLeft.GetShape().move(sf::Vector2f(0.0f, -350.0f * m_deltaTime.asSeconds()));
+            DetectWindowCollision(m_pLeft);
             m_paddleState = PaddleState::None;
             break;
         case PaddleState::RightPaddleUp:
-            ChangePosByInt(m_pRight.GetShape(), 0, -0.8f, m_deltaTime);
+            m_pRight.GetShape().move(sf::Vector2f(0.0f, -350.0f * m_deltaTime.asSeconds()));
+            DetectWindowCollision(m_pRight);
             m_paddleState = PaddleState::None;
             break;
         case PaddleState::LeftPaddleDown:
-            ChangePosByInt(m_pLeft.GetShape(), 0, 1.0f, m_deltaTime);
+            m_pLeft.GetShape().move(sf::Vector2f(0.0f, 350.0f * m_deltaTime.asSeconds()));
+            DetectWindowCollision(m_pLeft);
             m_paddleState = PaddleState::None;
             break;
         case PaddleState::RightPaddleDown:
-            ChangePosByInt(m_pRight.GetShape(), 0, 1.0f, m_deltaTime);
+            m_pRight.GetShape().move(sf::Vector2f(0.0f, 350.0f * m_deltaTime.asSeconds()));
+            DetectWindowCollision(m_pRight);
             m_paddleState = PaddleState::None;
             break;
     }
+}
+
+void Game::DetectWindowCollision(Entity& entity)
+{
+    auto& shape = entity.GetShape();
+    sf::FloatRect bb = shape.getGlobalBounds();
+    
+    if (bb.left < 0)
+    {
+        auto oldPos = shape.getPosition();
+        shape.setPosition(sf::Vector2f(0, oldPos.y));
+    }
+    else if (bb.top < 0)
+    {
+        auto oldPos = shape.getPosition();
+        shape.setPosition(sf::Vector2f(oldPos.x, 0));
+    }
+    else if ((bb.left + bb.getSize().x) > Game::WindowWidth)
+    {
+        auto oldPos = shape.getPosition();
+        shape.setPosition(sf::Vector2f(Game::WindowWidth - bb.getSize().x, oldPos.y));
+    }
+    else if ((bb.top + bb.getSize().y) > Game::WindowHeight)
+    {
+        auto oldPos = shape.getPosition();
+        shape.setPosition(sf::Vector2f(oldPos.x, Game::WindowHeight - bb.getSize().y));
+    }
+}
+
+void Game::PushBall()
+{
+    float rotation = m_ball.GetShape().getRotation();
+    std::cout << "Rotation of the ball: " << rotation << "\n";
 }
