@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <ctime>
 #include <iostream>
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
@@ -32,11 +33,6 @@ void Game::Run()
     {
         framesPassed++;
         
-        if (framesPassed == 1)
-        {
-            PushBall();
-        }
-
         sf::Event event;
         
         while (window.pollEvent(event))
@@ -58,6 +54,7 @@ void Game::Run()
         HandleInput();
         UpdatePosition();
         DrawEntities();
+        MoveBall();
 
         m_deltaTime = clock.restart();
 
@@ -101,30 +98,30 @@ void Game::UpdatePosition()
     {
         case PaddleState::LeftPaddleUp:
             m_pLeft.GetShape().move(sf::Vector2f(0.0f, -350.0f * m_deltaTime.asSeconds()));
-            DetectWindowCollision(m_pLeft);
+            DetectPaddleWindowCollision(m_pLeft);
             m_paddleState = PaddleState::None;
             break;
         case PaddleState::RightPaddleUp:
             m_pRight.GetShape().move(sf::Vector2f(0.0f, -350.0f * m_deltaTime.asSeconds()));
-            DetectWindowCollision(m_pRight);
+            DetectPaddleWindowCollision(m_pRight);
             m_paddleState = PaddleState::None;
             break;
         case PaddleState::LeftPaddleDown:
             m_pLeft.GetShape().move(sf::Vector2f(0.0f, 350.0f * m_deltaTime.asSeconds()));
-            DetectWindowCollision(m_pLeft);
+            DetectPaddleWindowCollision(m_pLeft);
             m_paddleState = PaddleState::None;
             break;
         case PaddleState::RightPaddleDown:
             m_pRight.GetShape().move(sf::Vector2f(0.0f, 350.0f * m_deltaTime.asSeconds()));
-            DetectWindowCollision(m_pRight);
+            DetectPaddleWindowCollision(m_pRight);
             m_paddleState = PaddleState::None;
             break;
     }
 }
 
-void Game::DetectWindowCollision(Entity& entity)
+void Game::DetectPaddleWindowCollision(Paddle& paddle)
 {
-    auto& shape = entity.GetShape();
+    auto& shape = paddle.GetShape();
     sf::FloatRect bb = shape.getGlobalBounds();
     
     if (bb.left < 0)
@@ -137,7 +134,8 @@ void Game::DetectWindowCollision(Entity& entity)
         auto oldPos = shape.getPosition();
         shape.setPosition(sf::Vector2f(oldPos.x, 0));
     }
-    else if ((bb.left + bb.getSize().x) > Game::WindowWidth)
+    
+    if ((bb.left + bb.getSize().x) > Game::WindowWidth)
     {
         auto oldPos = shape.getPosition();
         shape.setPosition(sf::Vector2f(Game::WindowWidth - bb.getSize().x, oldPos.y));
@@ -149,8 +147,82 @@ void Game::DetectWindowCollision(Entity& entity)
     }
 }
 
+void Game::DetectBallWindowCollision()
+{
+    auto& shape = m_ball.GetShape();
+    sf::FloatRect bb = shape.getGlobalBounds();
+    auto velocity = m_ball.GetVelocity();
+    bool collisionOccurred = false;
+
+    if (bb.left <= 0)
+    {
+        shape.setPosition(0, bb.top);
+        velocity.x = std::abs(velocity.x);
+        std::cout << velocity.x << " " << velocity.y << "\n";
+        collisionOccurred = true;
+    }
+    else if ((bb.left + bb.width) >= Game::WindowWidth)
+    {
+        shape.setPosition(Game::WindowWidth - bb.width, bb.top);
+        velocity.x = -std::abs(velocity.x);
+        collisionOccurred = true;
+    }
+    
+    if (bb.top <= 0)
+    {
+        shape.setPosition(bb.left, 0);
+        velocity.y = std::abs(velocity.y);
+        collisionOccurred = true;
+    }
+    else if ((bb.top + bb.height) >= Game::WindowHeight)
+    {
+        shape.setPosition(bb.left, Game::WindowHeight - bb.height);
+        velocity.y = -std::abs(velocity.y);
+        collisionOccurred = true;
+    }
+
+    if (collisionOccurred)
+    {
+        m_ball.SetVelocity(velocity);
+    }
+}
+
+void Game::DetectBallPaddleCollision()
+{
+    auto& ballShape = m_ball.GetShape();
+    auto& leftPaddleShape = m_pLeft.GetShape();
+    auto& rightPaddleShape = m_pRight.GetShape();
+
+    sf::FloatRect ballBB = ballShape.getGlobalBounds();
+    sf::FloatRect leftPaddleBB = leftPaddleShape.getGlobalBounds();
+    sf::FloatRect rightPaddleBB = rightPaddleShape.getGlobalBounds();
+
+    if (ballBB.intersects(leftPaddleBB))
+    {
+        ballShape.setPosition(leftPaddleBB.left + leftPaddleBB.width, ballBB.top);
+        m_ball.SetVelocity(-m_ball.GetVelocity().x, m_ball.GetVelocity().y);
+    }
+    else if (ballBB.intersects(rightPaddleBB))
+    {
+        ballShape.setPosition(Game::WindowWidth - 115 - (30 * 2), ballBB.top);
+        m_ball.SetVelocity(-m_ball.GetVelocity().x, m_ball.GetVelocity().y);
+    }
+}
+
 void Game::PushBall()
 {
-    float rotation = m_ball.GetShape().getRotation();
-    std::cout << "Rotation of the ball: " << rotation << "\n";
+    auto vel = m_ball.GetVelocity();
+    if (vel.x == 0 && vel.y == 0)
+    {
+        m_ball.SetVelocity(sf::Vector2f(m_ball.GetInitVelocity(), m_ball.GetInitVelocity()));
+    }
 }
+
+void Game::MoveBall()
+{
+    auto& shape = m_ball.GetShape();
+    shape.move(m_ball.GetVelocity() * m_deltaTime.asSeconds() * 200.0f);
+    DetectBallWindowCollision();
+    DetectBallPaddleCollision();
+}
+
